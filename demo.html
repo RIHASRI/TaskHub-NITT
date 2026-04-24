@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskHub — Multi-Tenant Demo</title>
+<style>
+  :root {
+    --bg: #f0f2f5;
+    --surface: #ffffff;
+    --surface2: #f8f9fb;
+    --border: #e2e5ea;
+    --text: #1a1d23;
+    --muted: #6b7280;
+    --accent: #4f6ef7;
+    --accent-light: #eef0fe;
+    --green: #10b981;
+    --green-light: #d1fae5;
+    --amber: #f59e0b;
+    --amber-light: #fef3c7;
+    --red: #ef4444;
+    --red-light: #fee2e2;
+    --purple: #7c3aed;
+    --purple-light: #ede9fe;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+  /* AUTH SCREEN */
+  #auth-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+  .auth-card { background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-md); width: 100%; max-width: 420px; overflow: hidden; }
+  .auth-header { background: linear-gradient(135deg, #4f6ef7 0%, #7c3aed 100%); padding: 32px; color: white; }
+  .auth-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .auth-header p { opacity: 0.8; font-size: 13px; }
+  .auth-body { padding: 28px; }
+  .tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 20px; }
+  .tab { flex: 1; padding: 7px; text-align: center; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); border: none; background: transparent; transition: all .15s; }
+  .tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .5px; }
+  .form-group input, .form-group select { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; color: var(--text); background: var(--surface); transition: border-color .15s; outline: none; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+  .btn { width: 100%; padding: 10px; background: var(--accent); color: white; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s, transform .1s; }
+  .btn:hover { opacity: .9; }
+  .btn:active { transform: scale(.99); }
+  .btn.secondary { background: var(--surface2); color: var(--text); border: 1.5px solid var(--border); }
+  .btn.danger { background: var(--red); }
+  .btn.sm { width: auto; padding: 6px 12px; font-size: 12px; }
+  .alert { padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 14px; }
+  .alert.error { background: var(--red-light); color: #b91c1c; }
+  .alert.success { background: var(--green-light); color: #065f46; }
+  .demo-hint { background: var(--accent-light); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 16px; font-size: 12px; color: #3730a3; }
+  .demo-hint strong { display: block; margin-bottom: 4px; }
+
+  /* APP LAYOUT */
+  #app-screen { display: none; min-height: 100vh; }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+  .logo { font-size: 17px; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .tenant-badge { background: var(--accent-light); color: var(--accent); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: .5px; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .user-info { text-align: right; }
+  .user-info .name { font-size: 13px; font-weight: 600; }
+  .user-info .role-tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; display: inline-block; }
+  .role-admin  { background: var(--purple-light); color: var(--purple); }
+  .role-member { background: var(--accent-light); color: var(--accent); }
+  .role-viewer { background: var(--green-light); color: var(--green); }
+  .logout-btn { padding: 6px 14px; background: var(--surface2); border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; font-weight: 500; }
+
+  .main { display: flex; gap: 0; min-height: calc(100vh - 56px); }
+  .sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 12px; flex-shrink: 0; }
+  .nav-section { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin: 16px 0 8px 8px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); transition: all .12s; border: none; background: transparent; width: 100%; text-align: left; }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: var(--accent-light); color: var(--accent); }
+  .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+
+  .content { flex: 1; padding: 28px; overflow-y: auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+  .page-title { font-size: 20px; font-weight: 700; }
+  .page-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  /* STATS ROW */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; }
+  .stat-label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
+  .stat-value { font-size: 26px; font-weight: 700; }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* TASK FILTERS */
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+  .filter-chip { padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1.5px solid var(--border); cursor: pointer; transition: all .12s; background: var(--surface); color: var(--muted); }
+  .filter-chip.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+  .search-input { margin-left: auto; padding: 6px 12px; border: 1.5px solid var(--border); border-radius: 20px; font-size: 13px; outline: none; transition: border-color .15s; background: var(--surface); color: var(--text); width: 200px; }
+  .search-input:focus { border-color: var(--accent); }
+
+  /* TASK TABLE */
+  .task-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .task-table { width: 100%; border-collapse: collapse; }
+  .task-table th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+  .task-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+  .task-table tr:last-child td { border-bottom: none; }
+  .task-table tr:hover td { background: var(--surface2); }
+  .task-title-cell { font-weight: 600; color: var(--text); }
+  .task-desc-cell { color: var(--muted); font-size: 12px; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .status-badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; display: inline-block; }
+  .status-pending { background: var(--amber-light); color: #92400e; }
+  .status-in_progress { background: var(--accent-light); color: #1e40af; }
+  .status-done { background: var(--green-light); color: #065f46; }
+  .action-btns { display: flex; gap: 6px; }
+  .icon-btn { padding: 5px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-size: 12px; font-weight: 500; transition: all .12s; }
+  .icon-btn:hover { background: var(--surface2); }
+  .icon-btn.del:hover { background: var(--red-light); border-color: #fca5a5; color: var(--red); }
+  .empty-state { padding: 48px; text-align: center; color: var(--muted); }
+  .empty-state .icon { font-size: 36px; margin-bottom: 12px; }
+
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border-radius: 14px; width: 100%; max-width: 480px; box-shadow: var(--shadow-md); overflow: hidden; }
+  .modal-head { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-head h3 { font-size: 16px; font-weight: 700; }
+  .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted); line-height: 1; }
+  .modal-body { padding: 20px 24px; }
+  .modal-foot { padding: 12px 24px 20px; display: flex; gap: 10px; justify-content: flex-end; }
+  .modal-foot .btn { width: auto; padding: 9px 20px; }
+
+  /* USERS PAGE */
+  .users-grid { display: grid; gap: 12px; }
+  .user-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; display: flex; align-items: center; gap: 14px; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .avatar-purple { background: var(--purple-light); color: var(--purple); }
+  .avatar-blue { background: var(--accent-light); color: var(--accent); }
+  .avatar-green { background: var(--green-light); color: var(--green); }
+  .user-info-card { flex: 1; }
+  .user-name { font-weight: 600; font-size: 14px; }
+  .user-email { color: var(--muted); font-size: 12px; }
+  .user-actions { display: flex; gap: 8px; align-items: center; }
+  select.role-select { padding: 5px 8px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; background: var(--surface); cursor: pointer; }
+
+  /* NOTIFICATION TOAST */
+  #toast { position: fixed; bottom: 24px; right: 24px; background: #1a1d23; color: white; padding: 12px 18px; border-radius: var(--radius); font-size: 13px; font-weight: 500; transform: translateY(80px); opacity: 0; transition: all .25s; z-index: 9999; max-width: 300px; }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.success { background: var(--green); }
+  #toast.error { background: var(--red); }
+
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-header">
+      <h1>📋 TaskHub</h1>
+      <p>Multi-Tenant Task Management · RBAC Demo</p>
+    </div>
+    <div class="auth-body">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('login')">Sign In</button>
+        <button class="tab" onclick="switchTab('register')">Register Org</button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <div id="login-form">
+        <div class="demo-hint">
+          <strong>🚀 Demo accounts ready:</strong>
+          Org: <strong>acme</strong> &nbsp;|&nbsp; admin@acme.com / admin123<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;member@acme.com / member123<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;viewer@acme.com / viewer123
+        </div>
+        <div id="login-error"></div>
+        <div class="form-group">
+          <label>Organisation slug</label>
+          <input type="text" id="l-slug" value="acme" placeholder="e.g. acme">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="l-email" value="admin@acme.com" placeholder="you@org.com">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="l-pass" value="admin123" placeholder="••••••">
+        </div>
+        <button class="btn" onclick="doLogin()">Sign In →</button>
+      </div>
+
+      <!-- REGISTER FORM -->
+      <div id="register-form" style="display:none">
+        <div id="register-error"></div>
+        <div class="form-group">
+          <label>Organisation name</label>
+          <input type="text" id="r-orgname" placeholder="Acme Corp">
+        </div>
+        <div class="form-group">
+          <label>Organisation slug</label>
+          <input type="text" id="r-slug" placeholder="acme-corp">
+        </div>
+        <div class="form-group">
+          <label>Your name</label>
+          <input type="text" id="r-name" placeholder="Alice">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="r-email" placeholder="alice@acme.com">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="r-pass" placeholder="Min 6 chars">
+        </div>
+        <button class="btn" onclick="doRegister()">Create Organisation →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ APP SCREEN -->
+<div id="app-screen">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="logo"><div class="logo-dot"></div>TaskHub</div>
+      <span class="tenant-badge" id="tenant-badge">—</span>
+    </div>
+    <div class="topbar-right">
+      <div class="user-info">
+        <div class="name" id="topbar-name">—</div>
+        <span class="role-tag" id="topbar-role">—</span>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="sidebar">
+      <div class="nav-section">Workspace</div>
+      <button class="nav-item active" id="nav-tasks" onclick="showPage('tasks')">
+        <span class="nav-icon">✓</span> Tasks
+      </button>
+      <button class="nav-item" id="nav-users" onclick="showPage('users')">
+        <span class="nav-icon">👥</span> Team
+      </button>
+
+      <div class="nav-section">Info</div>
+      <button class="nav-item" onclick="showPage('info')">
+        <span class="nav-icon">🔐</span> RBAC Info
+      </button>
+    </div>
+
+    <div class="content">
+      <!-- TASKS PAGE -->
+      <div class="page active" id="page-tasks">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Tasks</div>
+            <div class="page-sub" id="tasks-sub">Loading...</div>
+          </div>
+          <button class="btn sm" id="new-task-btn" onclick="openTaskModal()">+ New Task</button>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="stat-label">Total</div>
+            <div class="stat-value" id="stat-total">0</div>
+            <div class="stat-sub">in your org</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Pending</div>
+            <div class="stat-value" style="color:var(--amber)" id="stat-pending">0</div>
+            <div class="stat-sub">awaiting work</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">In Progress</div>
+            <div class="stat-value" style="color:var(--accent)" id="stat-progress">0</div>
+            <div class="stat-sub">active</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Done</div>
+            <div class="stat-value" style="color:var(--green)" id="stat-done">0</div>
+            <div class="stat-sub">completed</div>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <div class="filter-chip active" onclick="setFilter('all', this)">All</div>
+          <div class="filter-chip" onclick="setFilter('pending', this)">Pending</div>
+          <div class="filter-chip" onclick="setFilter('in_progress', this)">In Progress</div>
+          <div class="filter-chip" onclick="setFilter('done', this)">Done</div>
+          <input class="search-input" id="search-input" placeholder="Search tasks..." oninput="renderTasks()">
+        </div>
+
+        <div class="task-table-wrap">
+          <table class="task-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Assignee</th>
+                <th>Creator</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="task-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- USERS PAGE -->
+      <div class="page" id="page-users">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Team Members</div>
+            <div class="page-sub">Manage your organisation's users and roles</div>
+          </div>
+          <button class="btn sm" id="invite-btn" onclick="openInviteModal()">+ Invite User</button>
+        </div>
+        <div class="users-grid" id="users-grid"></div>
+      </div>
+
+      <!-- INFO PAGE -->
+      <div class="page" id="page-info">
+        <div class="page-title" style="margin-bottom:20px">RBAC & Multi-Tenancy</div>
+        <div style="display:grid;gap:16px;max-width:700px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px">
+            <h3 style="font-size:14px;margin-bottom:12px">Role Permissions Matrix</h3>
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead><tr style="border-bottom:1px solid var(--border)">
+                <th style="text-align:left;padding:6px 10px;color:var(--muted);font-weight:600">Action</th>
+                <th style="padding:6px 10px;color:var(--purple);font-weight:700">Admin</th>
+                <th style="padding:6px 10px;color:var(--accent);font-weight:700">Member</th>
+                <th style="padding:6px 10px;color:var(--green);font-weight:700">Viewer</th>
+              </tr></thead>
+              <tbody id="rbac-table-body"></tbody>
+            </table>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px">
+            <h3 style="font-size:14px;margin-bottom:8px">Multi-Tenancy Strategy</h3>
+            <p style="font-size:13px;color:var(--muted);line-height:1.7">Shared database with <code style="background:var(--surface2);padding:1px 6px;border-radius:4px;font-size:12px">tenant_id</code> discriminator column. Every query is scoped: <code style="background:var(--surface2);padding:1px 6px;border-radius:4px;font-size:12px">WHERE tenant_id = $currentTenant</code>. Tenants are completely isolated — users in <strong>acme</strong> can never see <strong>globex</strong> data.</p>
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+              <span class="tag" style="background:var(--accent-light);color:var(--accent)">Shared DB</span>
+              <span class="tag" style="background:var(--green-light);color:#065f46">tenant_id isolation</span>
+              <span class="tag" style="background:var(--amber-light);color:#92400e">JWT scoped</span>
+              <span class="tag" style="background:var(--purple-light);color:var(--purple)">Middleware enforced</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ TASK MODAL -->
+<div class="modal-overlay" id="task-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modal-title">New Task</h3>
+      <button class="modal-close" onclick="closeModal('task-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-task-id">
+      <div class="form-group">
+        <label>Title *</label>
+        <input type="text" id="t-title" placeholder="What needs to be done?">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" id="t-desc" placeholder="Optional details...">
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="t-status">
+          <option value="pending">Pending</option>
+          <option value="in_progress">In Progress</option>
+          <option value="done">Done</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Assign to</label>
+        <select id="t-assignee"><option value="">— Unassigned —</option></select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn secondary" onclick="closeModal('task-modal')">Cancel</button>
+      <button class="btn" onclick="saveTask()">Save Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ INVITE MODAL -->
+<div class="modal-overlay" id="invite-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Invite Team Member</h3>
+      <button class="modal-close" onclick="closeModal('invite-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>Name</label><input type="text" id="i-name" placeholder="Jane Smith"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="i-email" placeholder="jane@company.com"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="i-pass" placeholder="Temporary password"></div>
+      <div class="form-group">
+        <label>Role</label>
+        <select id="i-role">
+          <option value="member">Member — create/update own tasks</option>
+          <option value="viewer">Viewer — read-only</option>
+          <option value="admin">Admin — full access</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn secondary" onclick="closeModal('invite-modal')">Cancel</button>
+      <button class="btn" onclick="inviteUser()">Send Invite</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ============================================================
+// IN-BROWSER "DATABASE" — mirrors the PostgreSQL schema exactly
+// ============================================================
+
+const DB = {
+  tenants: [
+    { id: 1, slug: 'acme',   name: 'Acme Corp' },
+    { id: 2, slug: 'globex', name: 'Globex Inc' },
+  ],
+  users: [
+    { id: 1, tenant_id: 1, name: 'Alice Admin',  email: 'admin@acme.com',   password: 'admin123',  role: 'admin'  },
+    { id: 2, tenant_id: 1, name: 'Bob Member',   email: 'member@acme.com',  password: 'member123', role: 'member' },
+    { id: 3, tenant_id: 1, name: 'Carol Viewer', email: 'viewer@acme.com',  password: 'viewer123', role: 'viewer' },
+    { id: 4, tenant_id: 2, name: 'Dave Globex',  email: 'admin@globex.com', password: 'pass123',   role: 'admin'  },
+  ],
+  tasks: [
+    { id: 1, tenant_id: 1, creator_id: 1, assignee_id: 2, title: 'Design login page',        description: 'Figma mockup + React impl', status: 'done',        created_at: '2025-01-10' },
+    { id: 2, tenant_id: 1, creator_id: 2, assignee_id: 2, title: 'Implement JWT auth',        description: 'Backend middleware chain',  status: 'done',        created_at: '2025-01-11' },
+    { id: 3, tenant_id: 1, creator_id: 1, assignee_id: 1, title: 'Add RBAC middleware',       description: 'requireRole.js + tests',    status: 'in_progress', created_at: '2025-01-12' },
+    { id: 4, tenant_id: 1, creator_id: 2, assignee_id: null, title: 'Write API docs',        description: 'Postman collection',        status: 'pending',     created_at: '2025-01-13' },
+    { id: 5, tenant_id: 1, creator_id: 1, assignee_id: 3, title: 'Database indexing',        description: 'Add tenant_id indexes',     status: 'pending',     created_at: '2025-01-14' },
+    { id: 6, tenant_id: 1, creator_id: 2, assignee_id: 2, title: 'Frontend task filters',    description: 'Status filter chips',       status: 'in_progress', created_at: '2025-01-15' },
+    // Globex tasks — completely isolated
+    { id: 7, tenant_id: 2, creator_id: 4, assignee_id: 4, title: '[GLOBEX] Secret project',  description: 'Only globex can see this',  status: 'pending',     created_at: '2025-01-10' },
+  ],
+  _nextUserId: 5,
+  _nextTaskId: 8,
+};
+
+// ============================================================
+// SIMPLE JWT SIMULATION (base64 payload, no real crypto needed for demo)
+// ============================================================
+function createToken(user, tenantId) {
+  const payload = { id: user.id, tenantId, role: user.role, name: user.name, email: user.email };
+  return btoa(JSON.stringify(payload));
+}
+function parseToken(token) {
+  try { return JSON.parse(atob(token)); } catch { return null; }
+}
+
+// ============================================================
+// AUTH
+// ============================================================
+let currentUser = null; // { id, tenantId, role, name, email }
+
+function doLogin() {
+  const slug  = document.getElementById('l-slug').value.trim();
+  const email = document.getElementById('l-email').value.trim().toLowerCase();
+  const pass  = document.getElementById('l-pass').value;
+  const errEl = document.getElementById('login-error');
+
+  const tenant = DB.tenants.find(t => t.slug === slug);
+  if (!tenant) { errEl.innerHTML = '<div class="alert error">Organisation not found</div>'; return; }
+
+  const user = DB.users.find(u => u.tenant_id === tenant.id && u.email === email && u.password === pass);
+  if (!user) { errEl.innerHTML = '<div class="alert error">Invalid credentials</div>'; return; }
+
+  // Simulate JWT — store token
+  const token = createToken(user, tenant.id);
+  localStorage.setItem('th_token', token);
+  localStorage.setItem('th_tenant_slug', slug);
+
+  currentUser = parseToken(token);
+  currentUser.tenantSlug = tenant.name;
+  errEl.innerHTML = '';
+  bootApp();
+}
+
+function doRegister() {
+  const orgName = document.getElementById('r-orgname').value.trim();
+  const slug    = document.getElementById('r-slug').value.trim().toLowerCase().replace(/\s+/g, '-');
+  const name    = document.getElementById('r-name').value.trim();
+  const email   = document.getElementById('r-email').value.trim().toLowerCase();
+  const pass    = document.getElementById('r-pass').value;
+  const errEl   = document.getElementById('register-error');
+
+  if (!orgName || !slug || !name || !email || !pass) { errEl.innerHTML = '<div class="alert error">All fields required</div>'; return; }
+  if (pass.length < 6) { errEl.innerHTML = '<div class="alert error">Password must be 6+ characters</div>'; return; }
+  if (DB.tenants.find(t => t.slug === slug)) { errEl.innerHTML = '<div class="alert error">Slug already taken</div>'; return; }
+  if (DB.users.find(u => u.email === email)) { errEl.innerHTML = '<div class="alert error">Email already registered</div>'; return; }
+
+  const newTenantId = DB.tenants.length + 1;
+  DB.tenants.push({ id: newTenantId, slug, name: orgName });
+  const newUser = { id: DB._nextUserId++, tenant_id: newTenantId, name, email, password: pass, role: 'admin' };
+  DB.users.push(newUser);
+
+  const token = createToken(newUser, newTenantId);
+  localStorage.setItem('th_token', token);
+  currentUser = parseToken(token);
+  currentUser.tenantSlug = orgName;
+  errEl.innerHTML = '';
+  bootApp();
+}
+
+function doLogout() {
+  localStorage.removeItem('th_token');
+  currentUser = null;
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  currentFilter = 'all';
+}
+
+// ============================================================
+// RBAC CHECK — mirrors requireRole.js middleware
+// ============================================================
+const PERMISSIONS = {
+  createTask:    ['admin', 'member'],
+  updateAnyTask: ['admin'],
+  updateOwnTask: ['admin', 'member'],
+  deleteTask:    ['admin'],
+  manageUsers:   ['admin'],
+  viewUsers:     ['admin'],
+};
+function can(action) {
+  return PERMISSIONS[action]?.includes(currentUser?.role) ?? false;
+}
+function canUpdateTask(task) {
+  if (can('updateAnyTask')) return true;
+  if (can('updateOwnTask') && task.creator_id === currentUser.id) return true;
+  return false;
+}
+
+// ============================================================
+// APP BOOT
+// ============================================================
+function bootApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+
+  document.getElementById('tenant-badge').textContent = currentUser.tenantSlug;
+  document.getElementById('topbar-name').textContent  = currentUser.name;
+
+  const roleEl = document.getElementById('topbar-role');
+  roleEl.textContent = currentUser.role;
+  roleEl.className   = 'role-tag role-' + currentUser.role;
+
+  // Show/hide admin-only elements
+  document.getElementById('invite-btn').style.display  = can('manageUsers') ? '' : 'none';
+  document.getElementById('new-task-btn').style.display = can('createTask') ? '' : 'none';
+  document.getElementById('nav-users').style.display   = can('viewUsers') ? '' : 'none';
+
+  renderStats();
+  renderTasks();
+  renderUsers();
+  renderRbacTable();
+}
+
+// ============================================================
+// TASKS
+// ============================================================
+let currentFilter = 'all';
+
+function getMyTasks() {
+  // TENANT ISOLATION: always filter by tenant_id
+  return DB.tasks.filter(t => t.tenant_id === currentUser.tenantId);
+}
+
+function renderStats() {
+  const tasks = getMyTasks();
+  document.getElementById('stat-total').textContent    = tasks.length;
+  document.getElementById('stat-pending').textContent  = tasks.filter(t => t.status === 'pending').length;
+  document.getElementById('stat-progress').textContent = tasks.filter(t => t.status === 'in_progress').length;
+  document.getElementById('stat-done').textContent     = tasks.filter(t => t.status === 'done').length;
+  document.getElementById('tasks-sub').textContent     = `${tasks.length} tasks in your organisation`;
+}
+
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderTasks();
+}
+
+function renderTasks() {
+  const search = document.getElementById('search-input')?.value?.toLowerCase() || '';
+  let tasks = getMyTasks();
+  if (currentFilter !== 'all') tasks = tasks.filter(t => t.status === currentFilter);
+  if (search) tasks = tasks.filter(t => t.title.toLowerCase().includes(search) || (t.description||'').toLowerCase().includes(search));
+
+  const tbody = document.getElementById('task-tbody');
+  if (!tasks.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="icon">📭</div><div>No tasks found</div></div></td></tr>`;
+    return;
+  }
+
+  const users = DB.users.filter(u => u.tenant_id === currentUser.tenantId);
+  tbody.innerHTML = tasks.map(t => {
+    const creator  = users.find(u => u.id === t.creator_id);
+    const assignee = users.find(u => u.id === t.assignee_id);
+    const canEdit   = canUpdateTask(t);
+    const canDelete = can('deleteTask');
+    return `<tr>
+      <td>
+        <div class="task-title-cell">${esc(t.title)}</div>
+        <div class="task-desc-cell">${esc(t.description||'')}</div>
+      </td>
+      <td><span class="status-badge status-${t.status}">${t.status.replace('_',' ')}</span></td>
+      <td>${assignee ? `<span style="font-size:12px">${esc(assignee.name)}</span>` : '<span style="color:var(--muted);font-size:12px">—</span>'}</td>
+      <td><span style="font-size:12px">${esc(creator?.name||'?')}</span></td>
+      <td><span style="color:var(--muted);font-size:12px">${t.created_at}</span></td>
+      <td>
+        <div class="action-btns">
+          ${canEdit   ? `<button class="icon-btn" onclick="openEditTask(${t.id})">Edit</button>` : ''}
+          ${canDelete ? `<button class="icon-btn del" onclick="deleteTask(${t.id})">Delete</button>` : ''}
+          ${!canEdit && !canDelete ? '<span style="color:var(--muted);font-size:12px">view only</span>' : ''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openTaskModal(editId = null) {
+  document.getElementById('edit-task-id').value = editId || '';
+  document.getElementById('modal-title').textContent = editId ? 'Edit Task' : 'New Task';
+  document.getElementById('t-title').value  = '';
+  document.getElementById('t-desc').value   = '';
+  document.getElementById('t-status').value = 'pending';
+
+  if (editId) {
+    const t = DB.tasks.find(t => t.id === editId);
+    if (t) {
+      document.getElementById('t-title').value  = t.title;
+      document.getElementById('t-desc').value   = t.description || '';
+      document.getElementById('t-status').value = t.status;
+      document.getElementById('t-assignee').value = t.assignee_id || '';
+    }
+  }
+
+  // Populate assignee dropdown with this tenant's users
+  const sel = document.getElementById('t-assignee');
+  sel.innerHTML = '<option value="">— Unassigned —</option>';
+  DB.users.filter(u => u.tenant_id === currentUser.tenantId).forEach(u => {
+    sel.innerHTML += `<option value="${u.id}">${esc(u.name)} (${u.role})</option>`;
+  });
+  if (editId) {
+    const t = DB.tasks.find(t => t.id === editId);
+    if (t) sel.value = t.assignee_id || '';
+  }
+
+  document.getElementById('task-modal').classList.add('open');
+}
+
+function openEditTask(id) { openTaskModal(id); }
+
+function saveTask() {
+  const title    = document.getElementById('t-title').value.trim();
+  const desc     = document.getElementById('t-desc').value.trim();
+  const status   = document.getElementById('t-status').value;
+  const assignee = parseInt(document.getElementById('t-assignee').value) || null;
+  const editId   = parseInt(document.getElementById('edit-task-id').value) || null;
+
+  if (!title) { toast('Title is required', 'error'); return; }
+
+  if (editId) {
+    const task = DB.tasks.find(t => t.id === editId && t.tenant_id === currentUser.tenantId);
+    if (!task) { toast('Task not found', 'error'); return; }
+    if (!canUpdateTask(task)) { toast('Permission denied', 'error'); return; }
+    task.title = title; task.description = desc; task.status = status; task.assignee_id = assignee;
+    toast('Task updated ✓', 'success');
+  } else {
+    if (!can('createTask')) { toast('Permission denied', 'error'); return; }
+    DB.tasks.push({ id: DB._nextTaskId++, tenant_id: currentUser.tenantId, creator_id: currentUser.id, assignee_id: assignee, title, description: desc, status, created_at: new Date().toISOString().split('T')[0] });
+    toast('Task created ✓', 'success');
+  }
+
+  closeModal('task-modal');
+  renderStats();
+  renderTasks();
+}
+
+function deleteTask(id) {
+  if (!can('deleteTask')) { toast('Admins only', 'error'); return; }
+  const task = DB.tasks.find(t => t.id === id && t.tenant_id === currentUser.tenantId);
+  if (!task) { toast('Task not found or wrong tenant', 'error'); return; }
+  if (!confirm(`Delete "${task.title}"?`)) return;
+  DB.tasks.splice(DB.tasks.indexOf(task), 1);
+  toast('Task deleted', 'success');
+  renderStats();
+  renderTasks();
+}
+
+// ============================================================
+// USERS
+// ============================================================
+function renderUsers() {
+  if (!can('viewUsers')) { document.getElementById('users-grid').innerHTML = '<p style="color:var(--muted)">Admin only</p>'; return; }
+
+  const users = DB.users.filter(u => u.tenant_id === currentUser.tenantId);
+  const avatarColors = ['avatar-purple','avatar-blue','avatar-green'];
+
+  document.getElementById('users-grid').innerHTML = users.map((u, i) => {
+    const initials = u.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    const isMe = u.id === currentUser.id;
+    return `<div class="user-card">
+      <div class="avatar ${avatarColors[i%3]}">${initials}</div>
+      <div class="user-info-card">
+        <div class="user-name">${esc(u.name)}${isMe ? ' <span style="font-size:11px;color:var(--muted)">(you)</span>' : ''}</div>
+        <div class="user-email">${esc(u.email)}</div>
+      </div>
+      <div class="user-actions">
+        <select class="role-select" onchange="changeRole(${u.id}, this.value)" ${isMe ? 'disabled' : ''}>
+          <option value="admin"  ${u.role==='admin'  ?'selected':''}>Admin</option>
+          <option value="member" ${u.role==='member' ?'selected':''}>Member</option>
+          <option value="viewer" ${u.role==='viewer' ?'selected':''}>Viewer</option>
+        </select>
+        <span class="role-tag role-${u.role}">${u.role}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function changeRole(userId, newRole) {
+  if (!can('manageUsers')) { toast('Admins only', 'error'); return; }
+  const user = DB.users.find(u => u.id === userId && u.tenant_id === currentUser.tenantId);
+  if (!user) return;
+  user.role = newRole;
+  toast(`${user.name}'s role → ${newRole}`, 'success');
+  renderUsers();
+}
+
+function openInviteModal() {
+  ['i-name','i-email','i-pass'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('i-role').value = 'member';
+  document.getElementById('invite-modal').classList.add('open');
+}
+
+function inviteUser() {
+  const name  = document.getElementById('i-name').value.trim();
+  const email = document.getElementById('i-email').value.trim().toLowerCase();
+  const pass  = document.getElementById('i-pass').value;
+  const role  = document.getElementById('i-role').value;
+
+  if (!name || !email || !pass) { toast('All fields required', 'error'); return; }
+  if (DB.users.find(u => u.tenant_id === currentUser.tenantId && u.email === email)) {
+    toast('Email already exists in this org', 'error'); return;
+  }
+
+  DB.users.push({ id: DB._nextUserId++, tenant_id: currentUser.tenantId, name, email, password: pass, role });
+  toast(`${name} invited as ${role} ✓`, 'success');
+  closeModal('invite-modal');
+  renderUsers();
+}
+
+// ============================================================
+// RBAC TABLE
+// ============================================================
+function renderRbacTable() {
+  const rows = [
+    ['View all tasks',      true, true,  true ],
+    ['Create task',         true, true,  false],
+    ['Update own task',     true, true,  false],
+    ['Update any task',     true, false, false],
+    ['Delete task',         true, false, false],
+    ['Invite users',        true, false, false],
+    ['Change roles',        true, false, false],
+    ['View team list',      true, false, false],
+  ];
+  const check = '<span style="color:var(--green);font-weight:700">✓</span>';
+  const cross  = '<span style="color:var(--border);font-weight:700">—</span>';
+  document.getElementById('rbac-table-body').innerHTML = rows.map((r,i) =>
+    `<tr style="background:${i%2?'':'var(--surface2)'}">
+      <td style="padding:7px 10px">${r[0]}</td>
+      <td style="text-align:center;padding:7px">${r[1]?check:cross}</td>
+      <td style="text-align:center;padding:7px">${r[2]?check:cross}</td>
+      <td style="text-align:center;padding:7px">${r[3]?check:cross}</td>
+    </tr>`
+  ).join('');
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const navEl = document.getElementById('nav-' + name);
+  if (navEl) navEl.classList.add('active');
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function switchTab(tab) {
+  document.getElementById('login-form').style.display    = tab === 'login'    ? '' : 'none';
+  document.getElementById('register-form').style.display = tab === 'register' ? '' : 'none';
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='register')));
+}
+
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  setTimeout(() => { el.className = ''; }, 2500);
+}
+
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Close modal on backdrop click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+});
+
+// Auto-login from stored token
+const storedToken = localStorage.getItem('th_token');
+if (storedToken) {
+  const parsed = parseToken(storedToken);
+  const tenant = DB.tenants.find(t => t.id === parsed?.tenantId);
+  if (parsed && tenant) {
+    currentUser = parsed;
+    currentUser.tenantSlug = tenant.name;
+    bootApp();
+  }
+}
+</script>
+</body>
+</html>
