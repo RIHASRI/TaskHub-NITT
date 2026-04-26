@@ -1,10 +1,10 @@
-# 🗂️ Multi-Tenant Task Management System
+# Multi-Tenant Task Management System
 
 A production-quality full-stack task management application with strict **multi-tenancy**, **RBAC (Role-Based Access Control)**, and **JWT authentication**.
 
 ---
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -25,7 +25,7 @@ A production-quality full-stack task management application with strict **multi-
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Node.js v18+
@@ -76,7 +76,7 @@ npm start          # starts on :3000
 
 ---
 
-## 🏢 Multi-Tenancy Strategy
+## Multi-Tenancy Strategy
 
 **Approach: Shared Database with `tenant_id` column (Discriminator Column pattern)**
 
@@ -90,7 +90,7 @@ Every row in `users` and `tasks` carries a `tenant_id` foreign key. All queries 
 
 ---
 
-## 🔐 RBAC Design
+## RBAC Design
 
 | Role    | View Tasks | Create Task | Update Own Task | Update Any Task | Manage Users |
 |---------|-----------|-------------|-----------------|-----------------|--------------|
@@ -102,7 +102,7 @@ Roles are enforced via `requireRole(...roles)` middleware on every route.
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 multitenant-task-mgmt/
@@ -127,7 +127,7 @@ multitenant-task-mgmt/
 
 ---
 
-## 🔒 Security Highlights
+## Security Highlights
 
 - JWT tokens include `userId`, `tenantId`, and `role` — no separate DB lookup needed per request
 - All task queries are double-scoped: `WHERE tenant_id = $1 AND ...`
@@ -137,7 +137,7 @@ multitenant-task-mgmt/
 
 ---
 
-## 📬 Sample API Calls (Postman)
+## Sample API Calls (Postman)
 
 ### Register
 ```
