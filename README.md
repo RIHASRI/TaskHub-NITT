@@ -35,8 +35,8 @@ A production-quality full-stack task management application with strict **multi-
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/yourname/multitenant-tasks.git
-cd multitenant-tasks
+git clone https://github.com/RIHASRI/TaskHub-NITT.git
+cd TaskHub-NITT
 
 # Backend
 cd backend && npm install
@@ -60,7 +60,7 @@ psql -U postgres -d taskdb -f backend/src/db/schema.sql
 ```bash
 # backend/.env
 DATABASE_URL=postgresql://postgres:password@localhost:5432/taskdb
-JWT_SECRET=your_super_secret_key_here
+JWT_SECRET=JSR
 PORT=4000
 ```
 
